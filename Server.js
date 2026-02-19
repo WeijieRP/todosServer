@@ -40,7 +40,7 @@ app.use(
 // ================== GET ALL ==================
 app.get("/todos", async (req, res) => {
   try {
-    const [rows] = await dbConfig.execute("SELECT * FROM todos ORDER BY id DESC");
+    const [rows] = await dbConfig.execute("SELECT * FROM todos ORDER BY id DESC").sort((a,b)=>a-b)
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
