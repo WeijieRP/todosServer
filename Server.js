@@ -8,48 +8,20 @@ const PORT = process.env.DB_PORT || 3000;
 const app = express();
 
 
+// ✅ Proper Pool Config
 const dbConfig = mysql2.createPool({
-    DB_HOST : process.env.DB_HOST, 
-    DB_PORT :process.env.DB_PORT , 
-    DB_NAME :process.env.DB_NAME , 
-    DB_USER : process.env.DB_USER , 
-    DB_PASSWORD : process.env.DB_PASSWORD
-})
-app.use(express.json);
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
+  waitForConnections: true,
+  connectionLimit: 10,
+});
+
+app.use(express.json());
 
 
-//get all todos list 
-
-app.get("/todos" , async(req , res)=>{
-    const connections = await mysql2.createConnection(dbConfig);
-    const [rows] = await connections.execute("SELECT * FROM todos");
-    if(rows.length===0) return res.status(500).json({message : "Server fetch error operation failed"});
-    return res.json(rows);// return the reponse json 
-})
-
-app.post("/todos" , async(req , res)=>{
-    const {name , task , description , created_at , priority} = req.body;
-    const connections = await mysql2.createConnection(dbConfig);
-    const [rows] = await connections.execute("INSERT INTO todos (name , task , description , created_at , priority) VALUES(? , ? , ? , ? , ?)" , [name , task , description , created_at , priority]);
-    if(rows.affectedRows===0) return res.status(500).json({message : "Insertion operation failed"});
-    return res.json(rows);
-})
-
-app.put("/todos/:id" , async(req , res)=>{
-    const {name , task , description , created_at , priority} = req.body;
-    const id = Number(req.params.id);
-    const connections = await mysql2.createConnection(dbConfig);
-    const [rows] = await connections.execute("UPDATE FROM todos name=? , task=? , description=? , created_at , priority=? WHERE id=?", [name , task , description , created_at , priority , id]);
-    if(rows.affectedRows===0) return res.status(500).json({message : "Update operation failed"});
-    return res.json(rows);// return reponse
-})
-app.delete("/todos/:id" , async(req , res)=>{
-    const id = parseInt(req.params.id);
-    const connections = await mysql2.createConnection(dbConfig);
-    const [rows] = await connections.execute("DELETE FROM todos WHERE id=?" , [id]);
-    if(rows.affectedRows===0) return res.status(500).json({message : "Delete operation failed"});
-    return res.json(rows)
-})
 // -------------------- CORS --------------------
 const allowedOrigins = [
   "http://localhost:3000",
@@ -66,13 +38,82 @@ app.use(
     },
   })
 );
+// ================== GET ALL ==================
+app.get("/todos", async (req, res) => {
+  try {
+    const [rows] = await db.execute("SELECT * FROM todos ORDER BY id DESC");
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
+// ================== INSERT ==================
+app.post("/todos", async (req, res) => {
+  try {
+    const { name, task, description, priority } = req.body;
 
-app.use((req ,res , next)=>{
-    res.status(404).json({messageError:"404 route cannot be found "});
-})
+    const [result] = await db.execute(
+      "INSERT INTO todos (name, task, description, priority) VALUES (?, ?, ?, ?)",
+      [name, task, description, priority]
+    );
 
+    res.json({
+      message: "Todo created successfully",
+      insertId: result.insertId,
+    });
 
-app.listen(PORT , ()=>{
-    console.log(`Server runnning at PORT  ${PORT}`);
-})
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ================== UPDATE ==================
+app.put("/todos/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { name, task, description, priority } = req.body;
+
+    const [result] = await db.execute(
+      "UPDATE todos SET name=?, task=?, description=?, priority=? WHERE id=?",
+      [name, task, description, priority, id]
+    );
+
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: "Todo not found" });
+
+    res.json({ message: "Todo updated successfully" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ================== DELETE ==================
+app.delete("/todos/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const [result] = await db.execute(
+      "DELETE FROM todos WHERE id=?",
+      [id]
+    );
+
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: "Todo not found" });
+
+    res.json({ message: "Todo deleted successfully" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ================== 404 ==================
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
