@@ -8,7 +8,6 @@ const PORT = process.env.DB_PORT || 3000;
 const app = express();
 
 
-// ✅ Proper Pool Config
 const dbConfig = mysql2.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -41,7 +40,7 @@ app.use(
 // ================== GET ALL ==================
 app.get("/todos", async (req, res) => {
   try {
-    const [rows] = await db.execute("SELECT * FROM todos ORDER BY id DESC");
+    const [rows] = await dbConfig.execute("SELECT * FROM todos ORDER BY id DESC");
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -53,7 +52,7 @@ app.post("/todos", async (req, res) => {
   try {
     const { name, task, description, priority } = req.body;
 
-    const [result] = await db.execute(
+    const [result] = await dbConfig.execute(
       "INSERT INTO todos (name, task, description, priority) VALUES (?, ?, ?, ?)",
       [name, task, description, priority]
     );
@@ -74,7 +73,7 @@ app.put("/todos/:id", async (req, res) => {
     const id = Number(req.params.id);
     const { name, task, description, priority } = req.body;
 
-    const [result] = await db.execute(
+    const [result] = await dbConfig.execute(
       "UPDATE todos SET name=?, task=?, description=?, priority=? WHERE id=?",
       [name, task, description, priority, id]
     );
@@ -94,7 +93,7 @@ app.delete("/todos/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
 
-    const [result] = await db.execute(
+    const [result] = await dbConfig.execute(
       "DELETE FROM todos WHERE id=?",
       [id]
     );
